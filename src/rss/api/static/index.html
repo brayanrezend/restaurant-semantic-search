@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NOLA Restaurant Search</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f5f2; --surface: #ffffff; --text: #1d1b19; --muted: #6b655e; --faint: #9a938a; --border: #e4dfd8;
+    --accent: #7a3e9d; --accent-soft: #f1e8f6; --mark: #f6e7a8; --open: #1f7a4d; --error: #a33a2c; --code-bg: #f1eee9;
+    --shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161514; --surface: #201f1d; --text: #ece8e3; --muted: #a39d95; --faint: #77716a; --border: #34312e;
+      --accent: #c08ee0; --accent-soft: #2f2537; --mark: #5a4a1c; --open: #5cc48e; --error: #e0796a; --code-bg: #1a1918;
+      --shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  main { max-width: 820px; margin: 0 auto; padding: 40px 16px 80px; }
+
+  header h1 { margin: 0; font-size: 26px; letter-spacing: -0.015em; }
+  header p { margin: 4px 0 20px; color: var(--muted); }
+
+  .searchbar { display: flex; gap: 8px; }
+  .search-field { position: relative; flex: 1; min-width: 0; }
+  .search-field input { width: 100%; padding: 12px 42px 12px 16px; font: inherit; font-size: 17px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+  .search-field input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .clear-q { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border: 0; border-radius: 50%; background: none; color: var(--muted); font-size: 20px; line-height: 1; }
+  .clear-q:hover { background: var(--accent-soft); color: var(--text); }
+  .clear-q[hidden] { display: none; }
+  .primary { padding: 0 22px; border: 0; border-radius: 12px; background: var(--accent); color: #fff; font-weight: 600; }
+  .ai-toggle { padding: 0 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--muted); font-weight: 600; white-space: nowrap; }
+  .ai-toggle[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .ai-toggle[hidden] { display: none; }
+
+  .understood { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-top: 12px; padding: 10px 14px; border-radius: 10px; background: var(--accent-soft); font-size: 14px; }
+  .understood[hidden] { display: none; }
+  .understood .label { color: var(--accent); font-weight: 600; }
+  .understood .parts { flex: 1; min-width: 0; }
+  .understood .meta { font-size: 12px; }
+  .understood .error { padding: 0; color: var(--error); }
+
+  .examples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .examples[hidden] { display: none; }
+  .examples button { border: 1px dashed var(--border); background: none; color: var(--muted); padding: 3px 11px; font-size: 13px; border-radius: 999px; }
+  .examples button:hover { color: var(--text); border-color: var(--faint); }
+
+  .toolbar { position: relative; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
+  .toolbar select, .more-btn { font: inherit; font-size: 14px; padding: 5px 10px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; }
+  .toolbar select.set, .more-btn.set { border-color: var(--accent); color: var(--accent); }
+  .more-btn .count { display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 12px; text-align: center; }
+  .popover { position: absolute; top: calc(100% + 8px); left: 0; z-index: 10; width: min(520px, 100%); padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+  .popover[hidden] { display: none; }
+  .group + .group { margin-top: 14px; }
+  .group-title { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { padding: 3px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: 13px; cursor: pointer; user-select: none; }
+  .chip input { display: none; }
+  .chip:has(input:checked) { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+  .active { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .active:empty { display: none; }
+  .active button { border: 0; padding: 2px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; }
+  .active .clear { background: none; color: var(--muted); text-decoration: underline; }
+
+  .status { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 28px 0 4px; padding-bottom: 10px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+  .link { border: 0; background: none; padding: 0; color: var(--accent); font-size: 13px; }
+  .link:hover { text-decoration: underline; }
+
+  .result { border-bottom: 1px solid var(--border); }
+  .result-main { display: grid; grid-template-columns: 28px 1fr auto; gap: 0 10px; width: 100%; padding: 16px 0; border: 0; background: none; text-align: left; }
+  .result-main:hover .name { color: var(--accent); }
+  .result-main .name, .result-main .meta, .result-main .evidence { display: block; }
+  .rank { color: var(--faint); font-variant-numeric: tabular-nums; padding-top: 1px; }
+  .name { font-size: 17px; font-weight: 650; }
+  .meta { color: var(--muted); font-size: 14px; }
+  .evidence { margin-top: 6px; font-size: 14px; color: var(--text); }
+  .evidence::before { content: "“"; color: var(--faint); }
+  .evidence::after { content: "”"; color: var(--faint); }
+  mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1px; }
+  .result-main .ai-reason { display: block; margin-top: 6px; font-size: 14px; color: var(--accent); }
+  .result-main .ai-reason.loading { color: var(--faint); }
+  .side { text-align: right; white-space: nowrap; font-size: 13px; color: var(--faint); }
+  .side .open { color: var(--open); font-weight: 600; }
+  .chev { display: inline-block; margin-top: 4px; transition: transform 0.15s; }
+  .result.expanded .chev { transform: rotate(180deg); }
+
+  .detail { padding: 0 0 20px 38px; }
+  .detail[hidden] { display: none; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 200px; gap: 24px; }
+  .detail h3 { margin: 0 0 6px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+  .detail h3:not(:first-child) { margin-top: 16px; }
+  .cats { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .cats span { padding: 1px 9px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); }
+  .highlight { font-size: 14px; }
+  .highlight + .highlight { margin-top: 2px; color: var(--muted); }
+  table { border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  td { padding: 1px 0; }
+  td:first-child { color: var(--muted); width: 42px; }
+  tr.today td { font-weight: 650; color: var(--text); }
+  blockquote { margin: 0 0 12px; padding-left: 12px; border-left: 3px solid var(--border); font-size: 14px; }
+  blockquote .text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+  blockquote.expanded .text { display: block; }
+  .detail-links { margin-top: 8px; display: flex; gap: 16px; font-size: 13px; }
+  .detail-links a { color: var(--accent); text-decoration: none; }
+
+  dialog { width: min(920px, calc(100vw - 32px)); max-height: calc(100vh - 64px); padding: 0; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+  .dialog-head { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .dialog-head h2 { margin: 0; font-size: 18px; }
+  .dialog-body { padding: 4px 20px 20px; }
+  .dialog-body h3 { margin: 18px 0 8px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .dialog-body p { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+  .timings { display: flex; flex-wrap: wrap; gap: 8px; }
+  .timings span { padding: 4px 10px; border-radius: 8px; background: var(--code-bg); border: 1px solid var(--border); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .timings b { font-weight: 650; }
+  pre { margin: 0; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px; overflow-x: auto; font-size: 12.5px; line-height: 1.5; scrollbar-width: thin; }
+  .close { border: 0; background: none; font-size: 24px; line-height: 1; color: var(--muted); }
+
+  .placeholder, .error { color: var(--muted); text-align: center; padding: 48px 0; }
+  .error { color: var(--error); }
+
+  @media (max-width: 640px) {
+    main { padding-top: 24px; }
+    .searchbar { flex-direction: column; }
+    .primary { padding: 10px; }
+    .result-main { grid-template-columns: 22px 1fr; }
+    .side { grid-column: 2; text-align: left; margin-top: 4px; }
+    .detail { padding-left: 32px; }
+    .detail-grid { grid-template-columns: 1fr; gap: 0; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>NOLA Restaurant Search</h1>
+    <p>Describe what you want. One Oracle SQL query combines vector search, filters, opening hours and distance over <span id="count">1,100+</span> New Orleans restaurants.</p>
+  </header>
+
+  <form id="form" autocomplete="off">
+    <div class="searchbar">
+      <div class="search-field">
+        <input type="text" id="q" placeholder="e.g. cozy place for a date with good pasta">
+        <button type="button" class="clear-q" id="clear-q" aria-label="Clear search" hidden>×</button>
+      </div>
+      <button type="button" class="ai-toggle" id="ai" aria-pressed="false" hidden>✦ AI</button>
+      <button class="primary" type="submit">Search</button>
+    </div>
+    <div class="examples" id="examples"></div>
+
+    <div class="toolbar">
+      <select id="price_max" aria-label="Max price"><option value="">Any price</option><option value="1">$</option><option value="2">Up to $$</option><option value="3">Up to $$$</option></select>
+      <select id="min_stars" aria-label="Min rating"><option value="">Any rating</option><option value="3.5">3.5+ ★</option><option value="4">4+ ★</option><option value="4.5">4.5+ ★</option></select>
+      <select id="category" aria-label="Category"><option value="">Any category</option></select>
+      <select id="near" aria-label="Near"><option value="">Anywhere</option></select>
+      <select id="radius_km" aria-label="Radius" hidden><option value="0.5">within 0.5 km</option><option value="1" selected>within 1 km</option><option value="2">within 2 km</option><option value="5">within 5 km</option></select>
+      <button type="button" class="more-btn" id="more">More filters</button>
+      <div class="popover" id="popover" hidden>
+        <div class="group"><div class="group-title">Must have</div><div class="chips" id="features"></div></div>
+        <div class="group"><div class="group-title">Vibe &amp; occasion</div><div class="chips" id="tags"></div></div>
+      </div>
+    </div>
+    <div class="active" id="active"></div>
+    <div class="understood" id="understood" hidden></div>
+  </form>
+
+  <div class="status" id="status"></div>
+  <div id="results"></div>
+</main>
+
+<dialog id="query-dialog">
+  <div class="dialog-head"><h2>How this query ran</h2><button type="button" class="close" id="dialog-close" aria-label="Close">×</button></div>
+  <div class="dialog-body" id="dialog-body"></div>
+</dialog>
+
+<script>
+const EXAMPLES = [
+  "cozy place for a date with good pasta",
+  "cheap brunch good for working on laptop",
+  "late night spot with live jazz and cocktails",
+  "authentic gumbo and crawfish, not touristy",
+  "quero comer uma pizza barata perto do French Quarter",
+];
+const FEATURES = {
+  open_now: "Open now", free_wifi: "Free WiFi", outdoor_seating: "Outdoor seating",
+  takes_reservations: "Reservations", good_for_kids: "Good for kids", good_for_groups: "Groups",
+  dogs_allowed: "Dog friendly", happy_hour: "Happy hour", byob: "BYOB",
+};
+const TAGS = {
+  romantic: "romantic", intimate: "intimate", classy: "classy", trendy: "trendy", casual: "casual",
+  divey: "divey", hipster: "hipster", upscale: "upscale", touristy: "touristy",
+  brunch: "brunch", latenight: "late night", dessert: "dessert", live: "live music",
+};
+const MUSIC = { background_music: "background music", jukebox: "jukebox", dj: "DJ", karaoke: "karaoke", video: "music videos", live: "live music" };
+const GENERIC_CATEGORIES = new Set(["Restaurants", "Food", "Event Planning & Services", "Hotels & Travel", "Hotels",
+                                    "Venues & Event Spaces", "Caterers", "Arts & Entertainment"]);
+const WIFI = { free: "free WiFi", paid: "paid WiFi", no: "no WiFi" };
+const ALCOHOL = { full_bar: "full bar", beer_and_wine: "beer & wine", none: "no alcohol" };
+const DAYS = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const SELECTS = ["price_max", "min_stars", "category", "near", "radius_km"];
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const label = (s) => String(s ?? "").replaceAll("_", " ");
+const chip = (name, value, text) => `<label class="chip"><input type="checkbox" name="${name}" value="${value}">${esc(text)}</label>`;
+const categories = (s) => (s || "").split(", ").filter((c) => c && !GENERIC_CATEGORIES.has(c));
+const price = (n) => n ? "$".repeat(n) : null;
+const pref = {
+  get() { try { return localStorage.getItem("rss-ai") === "1"; } catch { return false; } },
+  set(v) { try { localStorage.setItem("rss-ai", v ? "1" : "0"); } catch {} },
+};
+
+const state = { data: null, cache: new Map(), places: {}, ai: false, semantic: null, parse: null, explain: null, snapshot: null, seq: 0 };
+
+$("examples").innerHTML = EXAMPLES.map((e) => `<button type="button">${esc(e)}</button>`).join("");
+$("features").innerHTML = Object.entries(FEATURES).map(([k, v]) => chip("feature", k, v)).join("");
+$("tags").innerHTML = Object.entries(TAGS).map(([k, v]) => chip("tag", k, v)).join("");
+
+fetch("/api/facets").then((r) => r.json()).then((f) => {
+  $("category").innerHTML += f.categories.map((c) => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("");
+  for (const n of f.neighborhoods) state.places[n.name] = [n.lat, n.lon];
+  $("near").innerHTML += f.neighborhoods.map((n) => `<option>${esc(n.name)}</option>`).join("");
+});
+fetch("/health").then((r) => r.json()).then((h) => {
+  $("count").textContent = h.embeddings.toLocaleString("en-US");
+  if (!h.llm.enabled) return;
+  $("ai").hidden = false;
+  $("ai").title = `Use ${h.llm.model} (${h.llm.provider}) to understand the request and explain results`;
+  setAi(pref.get(), false);
+}).catch(() => {});
+
+function checked(name) {
+  return [...document.querySelectorAll(`input[name=${name}]:checked`)].map((el) => el.value);
+}
+
+function queryText() {
+  const text = $("q").value.trim();
+  return state.semantic && state.semantic.for === text ? state.semantic.query : text;
+}
+
+function params() {
+  const p = new URLSearchParams();
+  const q = queryText();
+  if (q) p.set("q", q);
+  for (const id of ["price_max", "min_stars", "category"]) if ($(id).value) p.set(id, $(id).value);
+  if ($("near").value && state.places[$("near").value]) {
+    const [lat, lon] = state.places[$("near").value];
+    p.set("lat", lat); p.set("lon", lon); p.set("radius_km", $("radius_km").value);
+  }
+  for (const f of checked("feature")) {
+    if (f === "open_now" || f === "free_wifi") p.set(f, "true");
+    else p.append("feature", f);
+  }
+  for (const t of checked("tag")) p.append("tag", t);
+  return p;
+}
+
+function snapshot() {
+  return { ...Object.fromEntries(SELECTS.map((id) => [id, $(id).value])), feature: checked("feature"), tag: checked("tag") };
+}
+
+function restore(s) {
+  for (const id of SELECTS) $(id).value = s[id];
+  for (const name of ["feature", "tag"]) {
+    document.querySelectorAll(`input[name=${name}]`).forEach((el) => { el.checked = s[name].includes(el.value); });
+  }
+}
+
+function applyFilters(f) {
+  const features = [...f.features, ...(f.open_now ? ["open_now"] : []), ...(f.free_wifi ? ["free_wifi"] : [])];
+  restore({
+    price_max: f.price_max ? String(f.price_max) : "", min_stars: f.min_stars ? String(f.min_stars) : "",
+    category: f.category || "", near: f.near || "", radius_km: $("radius_km").value, feature: features, tag: f.tags,
+  });
+  if (f.category && $("category").value !== f.category) $("category").value = "";
+}
+
+function syncControls() {
+  for (const id of ["price_max", "min_stars", "category", "near"]) $(id).classList.toggle("set", !!$(id).value);
+  $("radius_km").hidden = !$("near").value;
+  const features = checked("feature"), tags = checked("tag");
+  const n = features.length + tags.length;
+  $("more").classList.toggle("set", n > 0);
+  $("more").innerHTML = `More filters${n ? `<span class="count">${n}</span>` : ""}`;
+  const pills = [
+    ...features.map((f) => `<button type="button" data-name="feature" data-value="${f}">${esc(FEATURES[f])} ✕</button>`),
+    ...tags.map((t) => `<button type="button" data-name="tag" data-value="${t}">${esc(TAGS[t])} ✕</button>`),
+  ];
+  $("active").innerHTML = pills.length ? pills.join("") + `<button type="button" class="clear">Clear all</button>` : "";
+  $("examples").hidden = !!$("q").value.trim();
+  $("clear-q").hidden = !$("q").value;
+}
+
+function setAi(on, rerun = true) {
+  state.ai = on;
+  pref.set(on);
+  $("ai").setAttribute("aria-pressed", on);
+  if (!on) forgetInterpretation();
+  if (rerun) submit();
+}
+
+function forgetInterpretation() {
+  state.semantic = null;
+  state.parse = null;
+  state.explain = null;
+  $("understood").hidden = true;
+}
+
+async function interpret(text) {
+  const bar = $("understood");
+  bar.hidden = false;
+  bar.innerHTML = `<span class="label">✦</span><span class="meta">Understanding your request…</span>`;
+  try {
+    const res = await fetch("/api/assistant/parse", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: text }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    state.snapshot = snapshot();
+    applyFilters(data.filters);
+    state.semantic = { for: text, query: data.search_text || text };
+    state.parse = data;
+    renderUnderstood();
+  } catch (e) {
+    state.semantic = null;
+    state.parse = null;
+    bar.innerHTML = `<span class="label">✦</span><span class="error">AI unavailable, searching with plain text. ${esc(e.message)}</span>`;
+  }
+}
+
+function renderUnderstood() {
+  const d = state.parse, f = d.filters;
+  const parts = [
+    `“${esc(d.search_text)}”`,
+    price(f.price_max) && `up to ${price(f.price_max)}`,
+    f.min_stars && `${f.min_stars}+ ★`,
+    f.category, f.near && `near ${f.near}`,
+    f.open_now && "open now", f.free_wifi && "free WiFi",
+    ...f.features.map((x) => FEATURES[x]), ...f.tags.map((x) => TAGS[x]),
+  ].filter(Boolean);
+  const m = d.llm;
+  $("understood").innerHTML = `
+    <span class="label">✦ Understood as</span>
+    <span class="parts">${parts.map((p, i) => i === 0 ? p : esc(p)).join(" · ")}</span>
+    <span class="meta">${esc(m.model)} · ${m.cache_hit ? "cached" : `${m.latency_ms} ms`}</span>
+    <button type="button" class="link" id="undo">Undo</button>`;
+}
+
+async function submit() {
+  const text = $("q").value.trim();
+  if (state.ai && text && !(state.semantic && state.semantic.for === text)) await interpret(text);
+  run();
+}
+
+async function run() {
+  syncControls();
+  const seq = ++state.seq;
+  state.explain = null;
+  $("results").innerHTML = `<div class="placeholder">Searching…</div>`;
+  try {
+    const res = await fetch(`/api/search?${params()}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    if (seq !== state.seq) return;
+    state.data = data;
+    render();
+    if (state.ai && data.results.length && $("q").value.trim()) explainTop(seq);
+  } catch (e) {
+    state.data = null;
+    $("status").innerHTML = "";
+    $("results").innerHTML = `<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+async function explainTop(seq) {
+  const top = state.data.results.slice(0, 5);
+  const slots = () => document.querySelectorAll(".ai-reason");
+  try {
+    const res = await fetch("/api/assistant/explain", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: $("q").value.trim(), query: queryText(), business_ids: top.map((r) => r.business_id) }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    if (seq !== state.seq) return;
+    state.explain = data;
+    const reasons = Object.fromEntries(data.items.map((it) => [it.business_id, it.reason]));
+    slots().forEach((el) => {
+      const reason = reasons[el.dataset.id];
+      if (reason) { el.textContent = `✦ ${reason}`; el.classList.remove("loading"); } else el.remove();
+    });
+  } catch {
+    if (seq === state.seq) slots().forEach((el) => el.remove());
+  }
+}
+
+function highlight(text, terms) {
+  if (!terms.length) return esc(text);
+  const stems = terms.map((t) => t.replace(/s$/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const re = new RegExp(`\\b(${stems.join("|")})\\w*`, "gi");
+  return esc(text).replace(re, "<mark>$&</mark>");
+}
+
+function render() {
+  const { results, timing_ms: t, terms } = state.data;
+  const total = Math.round(t.embed + t.sql + t.evidence);
+  const sorted = state.data.params.qv ? "ranked by meaning" : "ranked by rating";
+  const explaining = state.ai && $("q").value.trim();
+  $("status").innerHTML = `<span>${results.length} restaurants · ${sorted} · ${total} ms</span>
+    <button type="button" class="link" id="show-query">How this query ran</button>`;
+  if (!results.length) {
+    $("results").innerHTML = `<div class="placeholder">No restaurants match these filters.</div>`;
+    return;
+  }
+  $("results").innerHTML = results.map((r, i) => {
+    const meta = [`★ ${r.stars}`, price(r.price_level), ...categories(r.categories).slice(0, 2), r.address].filter(Boolean);
+    const side = [
+      r.open_status === "OPEN" ? `<span class="open">Open now</span>` : r.open_status === "CLOSED" ? "Closed" : "",
+      r.distance_km != null ? `${r.distance_km} km` : "",
+    ].filter(Boolean).join("<br>");
+    return `
+      <article class="result" data-id="${esc(r.business_id)}">
+        <button type="button" class="result-main" aria-expanded="false">
+          <span class="rank">${i + 1}</span>
+          <span>
+            <span class="name">${esc(r.name)}</span>
+            <span class="meta">${meta.map(esc).join(" · ")}</span>
+            ${r.evidence ? `<span class="evidence" title="Review passage closest to your search">${highlight(r.evidence.text, terms)}</span>` : ""}
+            ${explaining && i < 5 ? `<span class="ai-reason loading" data-id="${esc(r.business_id)}">✦ Reading the reviews…</span>` : ""}
+          </span>
+          <span class="side">${side}${side ? "<br>" : ""}<span class="chev">⌄</span></span>
+        </button>
+        <div class="detail" hidden></div>
+      </article>`;
+  }).join("");
+}
+
+async function toggle(article) {
+  const box = article.querySelector(".detail");
+  const open = article.classList.toggle("expanded");
+  article.querySelector(".result-main").setAttribute("aria-expanded", open);
+  box.hidden = !open;
+  if (!open) return;
+  const id = article.dataset.id;
+  if (!state.cache.has(id)) {
+    box.innerHTML = `<div class="meta">Loading…</div>`;
+    state.cache.set(id, await (await fetch(`/api/restaurants/${encodeURIComponent(id)}`)).json());
+  }
+  box.innerHTML = detailHtml(state.cache.get(id));
+  box.querySelectorAll("blockquote").forEach((b) => {
+    const text = b.querySelector(".text");
+    if (text.scrollHeight <= text.clientHeight + 1) b.querySelector(".link")?.remove();
+  });
+}
+
+function detailHtml(r) {
+  const tags = {};
+  for (const t of r.tags) { const [g, v] = t.split(":"); (tags[g] ||= []).push(v); }
+  const vibe = [...(tags.ambience || []), ...(tags.meal || []).map((m) => TAGS[m] || m), ...(tags.music || []).map((m) => MUSIC[m] || label(m))];
+  const practical = [WIFI[r.wifi], ALCOHOL[r.alcohol], r.noise_level && `${label(r.noise_level)} noise`,
+                     r.attire && `${label(r.attire)} attire`, tags.parking && `parking: ${tags.parking.join(", ")}`].filter(Boolean);
+  const highlights = [vibe, practical].filter((h) => h.length)
+    .map((h) => `<div class="highlight">${esc(h.join(" · "))}</div>`).join("");
+
+  const today = state.data.day_of_week;
+  const byDay = Object.fromEntries(r.hours.map((h) => [h.day, h]));
+  const hours = r.hours.length
+    ? `<table>${[1, 2, 3, 4, 5, 6, 7].map((d) => {
+        const h = byDay[d];
+        const text = !h ? "Closed" : h.open ? `${h.open}–${h.close}` : "Unclear";
+        return `<tr class="${d === today ? "today" : ""}"><td>${DAYS[d]}</td><td>${text}</td></tr>`;
+      }).join("")}</table>`
+    : `<div class="meta">No hours listed</div>`;
+
+  const maps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${r.name} ${r.address || ""} New Orleans`)}`;
+  return `
+    <div class="detail-grid">
+      <div>
+        <div class="cats">${categories(r.categories).slice(0, 5).map((c) => `<span>${esc(c)}</span>`).join("")}</div>
+        ${highlights ? `<h3>Highlights</h3>${highlights}` : ""}
+        <h3>Most useful reviews</h3>
+        ${r.reviews.slice(0, 2).map((v) => `
+          <blockquote>
+            <div class="meta">★ ${v.stars} · ${v.date}</div>
+            <div class="text">${esc(v.text)}${v.text.length >= 600 ? "…" : ""}</div>
+            <button type="button" class="link more-review">Read more</button>
+          </blockquote>`).join("")}
+      </div>
+      <div>
+        <h3>Hours</h3>${hours}
+        <h3>Where</h3>
+        <div class="meta">${esc(r.address || "No address listed")}</div>
+        <div class="meta">${r.review_count.toLocaleString("en-US")} reviews</div>
+        <div class="detail-links"><a href="${maps}" target="_blank" rel="noopener">Open in Google Maps ↗</a></div>
+      </div>
+    </div>`;
+}
+
+function llmSection(title, description, info) {
+  if (!info) return "";
+  const tokens = info.input_tokens != null ? ` · ${info.input_tokens} in / ${info.output_tokens} out tokens` : "";
+  const timing = info.cache_hit ? "served from cache (llm_cache)" : `${info.latency_ms} ms${tokens}`;
+  return `
+    <h3>${title}</h3>
+    <p>${description} ${esc(info.provider)} · ${esc(info.model)} · ${timing}${info.dropped_items ? ` · ${info.dropped_items} invalid values dropped` : ""}</p>
+    <pre>${esc(JSON.stringify(info.raw, null, 2))}</pre>`;
+}
+
+function showQuery() {
+  const d = state.data, t = d.timing_ms;
+  const params = Object.entries(d.params).map(([k, v]) => `:${k.padEnd(10)} = ${typeof v === "string" && k !== "qv" ? `'${v}'` : v}`).join("\n");
+  $("dialog-body").innerHTML = `
+    <h3>Timing</h3>
+    <div class="timings">
+      ${state.parse && !state.parse.llm.cache_hit ? `<span>LLM: understand request <b>${state.parse.llm.latency_ms} ms</b></span>` : ""}
+      <span>Embed question <b>${t.embed} ms</b></span>
+      <span>Hybrid search SQL <b>${t.sql} ms</b></span>
+      ${d.evidence_sql ? `<span>Evidence SQL <b>${t.evidence} ms</b></span>` : ""}
+      ${state.explain?.llm && !state.explain.llm.cache_hit ? `<span>LLM: explain results <b>${state.explain.llm.latency_ms} ms</b></span>` : ""}
+    </div>
+    ${llmSection("AI · understanding the request", "The question became structured filters, validated against the allowed values.", state.parse?.llm)}
+    <h3>Bind parameters</h3>
+    <p>Open status is evaluated at ${esc(d.at.replace("T", " "))}, New Orleans time.</p>
+    <pre>${esc(params)}</pre>
+    <h3>Hybrid search</h3>
+    <p>Vector similarity, structured filters, opening hours and distance in one statement.</p>
+    <pre>${esc(d.sql)}</pre>
+    ${d.evidence_sql ? `
+      <h3>Evidence</h3>
+      <p>For each result, the review passage closest to the question (multi-vector table <code>cur_review_passage</code>).</p>
+      <pre>${esc(d.evidence_sql)}</pre>` : ""}
+    ${llmSection("AI · explaining the results", "Grounded only on the restaurant facts and the closest review passages.", state.explain?.llm)}`;
+  $("query-dialog").showModal();
+}
+
+function clearSearch() {
+  $("q").value = "";
+  forgetInterpretation();
+  $("q").focus();
+  run();
+}
+
+$("examples").addEventListener("click", (ev) => {
+  if (ev.target.tagName !== "BUTTON") return;
+  $("q").value = ev.target.textContent;
+  submit();
+});
+$("ai").addEventListener("click", () => setAi(!state.ai));
+$("understood").addEventListener("click", (ev) => {
+  if (ev.target.id !== "undo") return;
+  if (state.snapshot) restore(state.snapshot);
+  forgetInterpretation();
+  run();
+});
+$("more").addEventListener("click", () => { $("popover").hidden = !$("popover").hidden; });
+document.addEventListener("click", (ev) => {
+  if (!$("popover").hidden && !ev.target.closest("#popover, #more")) $("popover").hidden = true;
+});
+$("active").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button");
+  if (!b) return;
+  const inputs = b.classList.contains("clear")
+    ? document.querySelectorAll("input[name=feature], input[name=tag]")
+    : document.querySelectorAll(`input[name=${b.dataset.name}][value=${b.dataset.value}]`);
+  inputs.forEach((el) => { el.checked = false; });
+  run();
+});
+$("results").addEventListener("click", (ev) => {
+  const more = ev.target.closest(".more-review");
+  if (more) {
+    const quote = more.closest("blockquote");
+    quote.classList.toggle("expanded");
+    more.textContent = quote.classList.contains("expanded") ? "Show less" : "Read more";
+    return;
+  }
+  const main = ev.target.closest(".result-main");
+  if (main) toggle(main.closest(".result"));
+});
+$("status").addEventListener("click", (ev) => { if (ev.target.id === "show-query") showQuery(); });
+$("dialog-close").addEventListener("click", () => $("query-dialog").close());
+$("query-dialog").addEventListener("click", (ev) => { if (ev.target === $("query-dialog")) $("query-dialog").close(); });
+$("clear-q").addEventListener("click", clearSearch);
+$("q").addEventListener("keydown", (ev) => { if (ev.key === "Escape" && $("q").value) clearSearch(); });
+$("q").addEventListener("input", () => {
+  $("clear-q").hidden = !$("q").value;
+  if (!$("q").value.trim()) $("examples").hidden = false;
+  if (state.semantic && state.semantic.for !== $("q").value.trim()) $("understood").hidden = true;
+});
+$("form").addEventListener("submit", (ev) => { ev.preventDefault(); submit(); });
+$("form").addEventListener("change", (ev) => { if (ev.target.id !== "q") run(); });
+run();
+</script>
+</body>
+</html>
