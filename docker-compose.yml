@@ -1,0 +1,67 @@
+name: restaurant-semantic-search
+
+x-env: &env
+  DB_USER: ${APP_USER:-rss_app}
+  DB_PASSWORD: ${APP_USER_PASSWORD:-rss_app}
+  DB_DSN: oracle:1521/FREEPDB1
+  DATA_DIR: ${DATA_DIR:-/app/data/raw}
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-intfloat/multilingual-e5-small}
+  LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+  LLM_MODEL: ${LLM_MODEL:-}
+  OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+x-app: &app
+  build: .
+  image: rss-app
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  depends_on:
+    oracle:
+      condition: service_healthy
+
+services:
+  oracle:
+    image: container-registry.oracle.com/database/free:latest-lite
+    container_name: rss-oracle
+    environment:
+      ORACLE_PWD: ${ORACLE_PWD:-Oracle123}
+      APP_USER: ${APP_USER:-rss_app}
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:-rss_app}
+      VECTOR_MEMORY_SIZE: ${VECTOR_MEMORY_SIZE:-256M}
+      NLS_LANG: AMERICAN_AMERICA.AL32UTF8
+    ports:
+      - "${ORACLE_PORT:-1521}:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+      - ./db/startup:/opt/oracle/scripts/startup:ro
+
+  app:
+    <<: *app
+    container_name: rss-app
+    command: uvicorn rss.api.main:app --host 0.0.0.0 --port 8000
+    restart: on-failure
+    environment:
+      <<: *env
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      - ./src:/app/src
+
+  pipeline:
+    <<: *app
+    profiles: ["pipeline"]
+    environment:
+      <<: *env
+    volumes:
+      - ./data:/app/data:ro
+      - ./src:/app/src
+      - ./db:/app/db:ro
+      - ./eval:/app/eval:ro
+      - ./demo:/app/demo
+      - ./tests:/app/tests:ro
+      - ./pyproject.toml:/app/pyproject.toml:ro
+      - ./requirements-dev.txt:/app/requirements-dev.txt:ro
+
+volumes:
+  oracle-data:
