@@ -1,0 +1,199 @@
+# Evaluation set. Relevance is defined by rules over structured data and review text (Oracle Text),
+# never by embeddings, so the labels are independent from the models being evaluated.
+#
+# relevant:
+#   categories: any of these categories
+#   tags: all of these tags (ambience, meal, music)
+#   features: all of these boolean columns are true
+#   wifi, price_max, price_min: attribute filters
+#   mentions: each entry needs at least `min` reviews matching the Oracle Text query `text`
+#   near + radius_km: within the radius of a neighborhood
+# expected_filters: what the AI should extract from the question. A scalar may be a list of acceptable values
+#   (null in the list means leaving it empty is also fine); an omitted field must stay empty.
+# optional: tags or features the AI may add without being penalized
+
+- id: live_jazz
+  question: late night spot with live jazz and cocktails
+  relevant:
+    mentions: [{text: "jazz", min: 5}]
+    tags: [live]
+  expected_filters: {category: [Jazz & Blues, Music Venues, Cocktail Bars, Bars, Nightlife, null]}
+  optional: {tags: [live, latenight]}
+
+- id: cheap_pizza
+  question: cheap pizza
+  relevant: {categories: [Pizza], price_max: 1}
+  expected_filters: {price_max: 1, category: [Pizza, null]}
+
+- id: date_pasta
+  question: cozy place for a date with good pasta
+  relevant:
+    mentions: [{text: "pasta", min: 15}, {text: "date OR romantic OR anniversary", min: 5}]
+  expected_filters: {category: [Italian, null]}
+  optional: {tags: [romantic, intimate]}
+
+- id: laptop_cafe
+  question: quiet cafe where I can work on my laptop
+  relevant:
+    categories: [Cafes, Coffee & Tea]
+    wifi: free
+    mentions: [{text: "laptop OR {work from} OR studying", min: 3}]
+  expected_filters: {free_wifi: true, category: [Cafes, Coffee & Tea, null]}
+
+- id: gumbo
+  question: best gumbo in town
+  relevant:
+    mentions: [{text: "gumbo", min: 40}]
+  expected_filters: {category: [Cajun/Creole, Soup, null]}
+
+- id: crawfish
+  question: crawfish boil
+  relevant:
+    mentions: [{text: "crawfish NEAR boil", min: 3}]
+  expected_filters: {category: [Seafood, Cajun/Creole, null]}
+
+- id: oysters
+  question: fresh oysters and a cold beer
+  relevant:
+    mentions: [{text: "$oyster", min: 50}]
+  expected_filters: {category: [Seafood, null]}
+
+- id: beignets
+  question: beignets and coffee
+  relevant:
+    mentions: [{text: "$beignet", min: 15}]
+  expected_filters: {category: [Cafes, Coffee & Tea, Bakeries, Desserts, Donuts, null]}
+
+- id: poboy
+  question: roast beef po-boy
+  relevant:
+    mentions: [{text: "{roast beef}", min: 5}, {text: "poboy OR {po-boy} OR {po boy}", min: 5}]
+  expected_filters: {category: [Sandwiches, null]}
+
+- id: vegan
+  question: vegan friendly restaurant
+  relevant: {categories: [Vegan, Vegetarian]}
+  expected_filters: {category: [Vegan, Vegetarian, null]}
+
+- id: sushi
+  question: sushi
+  relevant: {categories: [Sushi Bars, Japanese]}
+  expected_filters: {category: [Sushi Bars, Japanese, null]}
+
+- id: tacos
+  question: authentic street tacos
+  relevant: {categories: [Tacos, Mexican]}
+  expected_filters: {category: [Tacos, Mexican, null]}
+
+- id: steakhouse
+  question: special occasion steakhouse
+  relevant: {categories: [Steakhouses]}
+  expected_filters: {category: [Steakhouses, null]}
+  optional: {tags: [upscale, classy, romantic]}
+
+- id: bbq
+  question: barbecue ribs and brisket
+  relevant: {categories: [Barbeque]}
+  expected_filters: {category: [Barbeque, null]}
+
+- id: pho
+  question: a hot bowl of pho
+  relevant:
+    categories: [Vietnamese]
+    mentions: [{text: "pho", min: 3}]
+  expected_filters: {category: [Vietnamese, Noodles, Soup, null]}
+
+- id: kids_lunch
+  question: family friendly lunch spot with kids
+  relevant:
+    features: [good_for_kids]
+    mentions: [{text: "kids OR children OR {kid friendly} OR {family friendly}", min: 10}]
+  expected_filters: {features: [good_for_kids]}
+
+- id: dog_patio
+  question: dog friendly patio
+  relevant: {features: [dogs_allowed, outdoor_seating]}
+  expected_filters: {features: [dogs_allowed, outdoor_seating]}
+
+- id: rooftop
+  question: rooftop bar with a view
+  relevant:
+    mentions: [{text: "rooftop OR {roof top}", min: 3}]
+  expected_filters: {category: [Bars, Cocktail Bars, Lounges, Nightlife, null]}
+
+- id: late_night_food
+  question: somewhere to eat after midnight
+  relevant: {tags: [latenight]}
+  optional: {tags: [latenight]}
+
+- id: fine_dining
+  question: upscale fine dining with a tasting menu
+  relevant:
+    price_min: 3
+    mentions: [{text: "{tasting menu} OR {chef's tasting} OR {prix fixe}", min: 2}]
+  expected_filters: {price_max: [3, null]}
+  optional: {tags: [upscale, classy]}
+
+- id: dive_burger
+  question: divey bar with a great burger
+  relevant:
+    categories: [Burgers, Bars, Dive Bars, Pubs]
+    tags: [divey]
+    mentions: [{text: "$burger", min: 5}]
+  expected_filters: {category: [Burgers, Dive Bars, Bars, Pubs, null]}
+  optional: {tags: [divey]}
+
+- id: brunch_bottomless
+  question: brunch with bottomless mimosas
+  relevant:
+    mentions: [{text: "bottomless OR {unlimited mimosas}", min: 3}]
+  expected_filters: {category: [Breakfast & Brunch, null]}
+  optional: {tags: [brunch]}
+
+- id: poboy_pt
+  question: lugar barato para comer po'boy
+  relevant:
+    price_max: 1
+    mentions: [{text: "poboy OR {po-boy} OR {po boy}", min: 5}]
+  expected_filters: {price_max: 1, category: [Sandwiches, null]}
+
+- id: romantic_fq_pt
+  question: jantar romântico no French Quarter
+  relevant:
+    tags: [romantic]
+    near: French Quarter
+    radius_km: 1.5
+  expected_filters: {tags: [romantic], near: French Quarter}
+
+- id: live_music_pt
+  question: lugar com música ao vivo e drinks
+  relevant:
+    tags: [live]
+    categories: [Bars, Cocktail Bars, Lounges, Music Venues, Jazz & Blues, Nightlife]
+  expected_filters: {tags: [live], category: [Bars, Cocktail Bars, Lounges, Music Venues, Jazz & Blues, Nightlife, null]}
+
+- id: cheap_breakfast_pt
+  question: café da manhã barato
+  relevant: {categories: [Breakfast & Brunch], price_max: 1}
+  expected_filters: {price_max: 1, category: [Breakfast & Brunch, Cafes, null]}
+  optional: {tags: [brunch]}
+
+- id: vegan_pt
+  question: comida vegana
+  relevant: {categories: [Vegan, Vegetarian]}
+  expected_filters: {category: [Vegan, Vegetarian, null]}
+
+- id: seafood_pt
+  question: frutos do mar frescos
+  relevant: {categories: [Seafood]}
+  expected_filters: {category: [Seafood, null]}
+
+- id: cheap_pizza_pt
+  question: Eu quero comer uma pizza mas quero gastar pouco
+  relevant: {categories: [Pizza], price_max: 1}
+  expected_filters: {price_max: 1, category: [Pizza, null]}
+
+- id: burger_pt
+  question: hambúrguer bom e barato
+  relevant: {categories: [Burgers], price_max: 1}
+  expected_filters: {price_max: 1, category: [Burgers, null]}
