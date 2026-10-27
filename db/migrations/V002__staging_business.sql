@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS stg_business (
+  business_id  VARCHAR2(22) PRIMARY KEY,
+  name         VARCHAR2(400),
+  address      VARCHAR2(400),
+  city         VARCHAR2(100),
+  city_norm    VARCHAR2(100),
+  state        VARCHAR2(10),
+  postal_code  VARCHAR2(20),
+  latitude     NUMBER,
+  longitude    NUMBER,
+  stars        NUMBER(2,1),
+  review_count NUMBER,
+  is_open      NUMBER(1),
+  categories   VARCHAR2(4000),
+  attributes   JSON,
+  hours        JSON,
+  batch_id     NUMBER NOT NULL,
+  line_no      NUMBER NOT NULL,
+  updated_at   TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL
+);
